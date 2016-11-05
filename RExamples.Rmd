@@ -1,0 +1,31 @@
+---
+title: "Examples of R Packages"
+output:
+  html_notebook: default
+  html_document: default
+---
+
+
+```{r}
+library(jsonlite);  library(dplyr);  library(stringr);  library(reshape2)
+NYPhil1842 = fromJSON("https://raw.githubusercontent.com/nyphilarchive/PerformanceHistory/master/Programs/json/1842-43_TO_1910-11.json")
+seasons = (NYPhil1842 %>% map("season"))$programs
+composers = (NYPhil1842 %>% map("works"))$programs %>% map("composerName")
+
+beethovenCount = unlist(composers %>% map(~ sum(str_count(na.omit(.), "Beethoven"))))
+mozartCount = unlist(composers %>% map(~ sum(str_count(na.omit(.), "Mozart"))))
+haydnCount = unlist(composers %>% map(~ sum(str_count(na.omit(.), "Haydn"))))
+mendelssohnCount = unlist(composers %>% map(~ sum(str_count(na.omit(.), "Mendelssohn"))))
+
+pieceCount = unlist(composers %>% map(~ length(na.omit(.))))
+
+composersBySeason <- data_frame(season = seasons, pieceCount = pieceCount, beethovenCount = beethovenCount, mozartCount = mozartCount, mendelssohnCount = mendelssohnCount)
+
+composersBySeason = ddply(composersBySeason,"seasons",numcolwise(sum))
+
+
+
+#composerNames <- na.exclude(unlist((NYPhil1842 %>% map("works"))$programs %>% map("composerName")))
+#composerNames = data_frame(composer=composerNames)
+#sum(str_count(composerNames$composer, "Mendelssohn"))
+```
