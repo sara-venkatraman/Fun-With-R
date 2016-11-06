@@ -4,26 +4,93 @@ output:
   html_notebook: default
   html_document: default
 ---
-
-
+**Hypothesis testing**
+- Do the exclamation marks in Donald Trump's tweets follow a Poisson distribution?
 ```{r}
-library(jsonlite);  library(dplyr);  library(stringr);  library(reshape2)
-NYPhil1842 = fromJSON("https://raw.githubusercontent.com/nyphilarchive/PerformanceHistory/master/Programs/json/1842-43_TO_1910-11.json")
+trumpTweets = read.csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/trump-twitter/realDonaldTrump_poll_tweets.csv", header=T)
+# p = ggplot(data=trumpTweets, aes(x=created_at, y=log(str_count(text, "!")))) + geom_point()
+# print(p)
+```
+
+- Is there a statistically significant difference between the number of newspapers circulating in 2004 and 2013?
+```{r}
+newspapers = read.csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/pulitzer/pulitzer-circulation-data.csv", header=T)
+circulation2004 = as.numeric(gsub(",", "", newspapers$Daily.Circulation..2004))
+circulation2013 = as.numeric(gsub(",", "", newspapers$Daily.Circulation..2013))
+
+# Check normality of differences
+qqnorm(circulation2004-circulation2013); qqline(circulation2004-circulation2013)
+hist(circulation2004-circulation2013, breaks="Freedman-Diaconis")
+shapiro.test(circulation2004-circulation2013)
+
+# Checking equality of variances would be helpful if the samples were independent (How do we do this for dependent samples?)
+
+# Paired t-test:
+t.test(circulation2004, circulation2013, paired = TRUE, conf.level = 0.95)
+
+# Paired t-test with null hypothesis that readership in 2013 was less (i.e. 2004-2013 > 0)
+t.test(circulation2004, circulation2013, paired = TRUE, alternative = "greater")
+```
+
+**Tabulating data**
+- What was the most popular day of birth from 2000-2014?
+```{r}
+births2000_2014 = read.csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/births/US_births_2000-2014_SSA.csv", header=TRUE)
+birthdays = ddply(births2000_2014, "year", subset, births==max(births))
+formattedBirthdays = apply(birthdays, 1, function(x) { cat(x[1], ":", month.abb[x[2]], x[3], fill=TRUE) })
+```
+
+- Which states have had the most commencement addresses given by US Presidents (since 1947)?
+```{r}
+commencementSpeeches = read.csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/presidential-commencement-speeches/commencement_speeches.csv", header = TRUE)
+tail(sort(table(commencementSpeeches$state)))
+```
+
+**Model selection**
+- What variables are the best predictors of how much people care about the Oxford comma?
+```{r}
+commas = read.csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/comma-survey-data/comma-survey-data.csv", header = TRUE) 
+# To be continued
+```
+
+- Were the ages of members of the US House of Representatives normally-distributed in 1947?
+```{r}
+congress = read.csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/congress-age/congress-terms.csv", header = TRUE)
+house1947 <- congress[with(congress, chamber == "house" & lubridate::year(as.Date(termstart)) == 1947), ]
+hist(as.double(house1947$age))
+
+
+house1947 = subset(congress, chamber == "house" & lubridate::year(as.Date(termstart)) == 1947)
+
+hist(as.double(house1947$age))
+qqnorm(as.double(house1947$age)); qqline(as.double(house1947$age))
+qplot(as.double(age), data=house1947, geom="histogram")
+```
+- Has the average age of congress members changed over time?
+
+- What proportion of the New York Philarmonic's performances were Beethoven, Mozart, and Mendelssohn pieces (from 1842-2016)?
+```{r}
+library(tidyverse);  library(reshape2);
+NYPhil1842 = fromJSON("https://raw.githubusercontent.com/nyphilarchive/PerformanceHistory/master/Programs/json/complete.json")
 seasons = (NYPhil1842 %>% map("season"))$programs
 composers = (NYPhil1842 %>% map("works"))$programs %>% map("composerName")
 
 beethovenCount = unlist(composers %>% map(~ sum(str_count(na.omit(.), "Beethoven"))))
 mozartCount = unlist(composers %>% map(~ sum(str_count(na.omit(.), "Mozart"))))
-haydnCount = unlist(composers %>% map(~ sum(str_count(na.omit(.), "Haydn"))))
 mendelssohnCount = unlist(composers %>% map(~ sum(str_count(na.omit(.), "Mendelssohn"))))
 
 pieceCount = unlist(composers %>% map(~ length(na.omit(.))))
 
-composersBySeason <- data_frame(season = seasons, pieceCount = pieceCount, beethovenCount = beethovenCount, mozartCount = mozartCount, mendelssohnCount = mendelssohnCount)
+composersBySeason <- data_frame(season = seasons, pieceCount = pieceCount, beethoven = beethovenCount, mozart = mozartCount, mendelssohn = mendelssohnCount)
 
 composersBySeason = ddply(composersBySeason,"seasons",numcolwise(sum))
+composersBySeason[,3:5] = composersBySeason[,3:5]/composersBySeason$pieceCount
 
+composersBySeasonLong = melt(composersBySeason[-NROW(composersBySeason),-2], id="seasons")
 
+p1 = ggplot(data=composersBySeasonLong,  aes(x=seasons, y=value, color=variable, group=variable)) +
+  geom_line() + theme(axis.text.x = element_text(size=5, angle=90))
+print(p1)
 
 #composerNames <- na.exclude(unlist((NYPhil1842 %>% map("works"))$programs %>% map("composerName")))
 #composerNames = data_frame(composer=composerNames)
